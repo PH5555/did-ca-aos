@@ -41,6 +41,8 @@ import androidx.fragment.app.Fragment;
 import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zkrypto.snark.SNARK;
 
 import org.omnione.did.ca.R;
@@ -57,11 +59,19 @@ import org.omnione.did.ca.ui.ScanQrActivity;
 import org.omnione.did.ca.ui.common.CustomDialog;
 import org.omnione.did.ca.ui.common.PayloadData;
 import org.omnione.did.ca.ui.common.ProgressCircle;
+import org.omnione.did.ca.ui.vc.dto.BaseVc;
+import org.omnione.did.ca.ui.vc.dto.EducationVc;
+import org.omnione.did.ca.ui.vc.dto.ExperienceVc;
+import org.omnione.did.ca.ui.vc.dto.LicenseVc;
+import org.omnione.did.ca.ui.vc.dto.ResumeType;
+import org.omnione.did.ca.ui.vc.dto.request.ApplyConfirmCommand;
+import org.omnione.did.ca.ui.vc.dto.response.KeyPairResponse;
 import org.omnione.did.ca.util.CaUtil;
 import org.omnione.did.sdk.core.api.WalletApi;
 import org.omnione.did.sdk.datamodel.common.enums.WalletTokenPurpose;
 import org.omnione.did.sdk.communication.exception.CommunicationException;
 import org.omnione.did.sdk.core.exception.WalletCoreException;
+import org.omnione.did.sdk.datamodel.protocol.P132ResponseVo;
 import org.omnione.did.sdk.datamodel.util.MessageUtil;
 import org.omnione.did.sdk.datamodel.offer.IssueOfferPayload;
 import org.omnione.did.sdk.datamodel.offer.VerifyOfferPayload;
@@ -73,10 +83,13 @@ import org.omnione.did.sdk.utility.Errors.UtilityException;
 import org.omnione.did.sdk.utility.MultibaseUtils;
 import org.omnione.did.sdk.wallet.walletservice.exception.WalletException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class VcListFragment extends Fragment {
     NavController navController;
@@ -292,14 +305,55 @@ public class VcListFragment extends Fragment {
                                 String ek = circuit[0];
                                 String vk = circuit[1];
 
+                                AtomicReference<EducationVc> educationVc = new AtomicReference<>();
+                                AtomicReference<ExperienceVc> experienceVc = new AtomicReference<>();
+                                AtomicReference<LicenseVc> licenseVc = new AtomicReference<>();
+
+                                AtomicReference<VerifiableCredential> education = new AtomicReference<>();
+                                AtomicReference<VerifiableCredential> experience = new AtomicReference<>();
+                                AtomicReference<VerifiableCredential> license = new AtomicReference<>();
+
+                                String pk = "";
+                                try {
+                                    pk = getPublicKey().get();
+                                } catch (Exception e) {
+                                    throw new RuntimeException(e);
+                                }
+
                                 vcList.forEach(vc -> {
-                                    if(vc.getCredentialSubject().)
+                                    ObjectMapper objectMapper = new ObjectMapper();
+                                    Map<String, Object> data = new HashMap<>();
+                                    vc.getCredentialSubject().getClaims().forEach(claim -> {
+                                        data.put(claim.getCaption(), claim.getValue());
+                                    });
+                                    String jsonString = "";
+                                    try {
+                                        jsonString = objectMapper.writeValueAsString(data);
+
+                                        if(BaseVc.checkVcFormat(jsonString, ResumeType.EDUCATION)) {
+                                            educationVc.set(BaseVc.mappingEducation(jsonString));
+                                            education.set(vc);
+                                        }
+                                        else if(BaseVc.checkVcFormat(jsonString, ResumeType.LICENSE)) {
+                                            licenseVc.set(BaseVc.mappingLicense(jsonString));
+                                            license.set(vc);
+                                        }
+                                        else if(BaseVc.checkVcFormat(jsonString, ResumeType.EXPERIENCE)) {
+                                            experienceVc.set(BaseVc.mappingExperience(jsonString));
+                                            experience.set(vc);
+                                        }
+                                    } catch (JsonProcessingException e) {
+                                        throw new RuntimeException(e);
+                                    }
                                 });
+                                
+                                // 수정
 
-                                String proof = SNARK.generateProof(ek, grad, emp, license, pkGrad, pkEmp, pkLicense, "회계학과", "경영학과", "경제학과", "4년제", "전문대", "1754374747", "126230400", "공인회계사");
+                                String proof = SNARK.generateProof(ek, education.get().getProof().getProofValue(),
+                                        experience.get().getProof().getProofValue(),
+                                        license.get().getProof().getProofValue(), pk, pk, pk, "회계학과", "경영학과", "경제학과", "4년제", "전문대", "1754374747", "126230400", "공인회계사");
 
-                                vcList.forEach(vc -> vc.getProof());
-
+                                verifySnark(applyPayload.getMemberId(), proof, vk, )
                             }
                         } else if(result.getResultCode() == Activity.RESULT_CANCELED){
                             CaUtil.showErrorDialog(activity,"[Information] canceled by user");
@@ -382,6 +436,32 @@ public class VcListFragment extends Fragment {
             .exceptionally(ex -> {
                 throw new CompletionException(ex);
         });
+    }
+
+    public CompletableFuture<String> getPublicKey() {
+        String api = "/ca/key";
+        HttpUrlConnection httpUrlConnection = new HttpUrlConnection();
+
+        return CompletableFuture.supplyAsync(() -> httpUrlConnection.send(activity, Config.CORE_URL + api, "GET", ""))
+                .thenApply(keyPair -> {
+                    KeyPairResponse key = MessageUtil.deserialize(keyPair, KeyPairResponse.class);
+                    return key.getPublicKey();
+                })
+                .exceptionally(ex -> {
+                    throw new CompletionException(ex);
+                });
+    }
+
+    public CompletableFuture<String> verifySnark(String memberId, String proof, String vk, String[] value) {
+        String api = "/ca/offer/verify";
+        HttpUrlConnection httpUrlConnection = new HttpUrlConnection();
+
+        ApplyConfirmCommand command = new ApplyConfirmCommand(memberId, proof, vk, value);
+
+        return CompletableFuture.supplyAsync(() -> httpUrlConnection.send(activity, Config.CORE_URL + api, "POST", command.toJson()))
+                .exceptionally(ex -> {
+                    throw new CompletionException(ex);
+                });
     }
 
     private VcDetail setVcInfo(String schemaData) {

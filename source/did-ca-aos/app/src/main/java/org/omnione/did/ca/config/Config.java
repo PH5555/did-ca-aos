@@ -25,6 +25,8 @@ public class Config {
     public final static String WALLET_URL = "http://192.168.3.130:18095"; //dev
     public final static String API_GATEWAY_URL = "http://192.168.3.130:18093"; //dev
 
+    public final static String CORE_URL = "http://192.168.3.130:8080";
+
     //////////// pin config ////////////////
     public final static int PIN_MAX_VALUE = 6;
     public final static int PIN_FAIL_DELAY = 2000;
