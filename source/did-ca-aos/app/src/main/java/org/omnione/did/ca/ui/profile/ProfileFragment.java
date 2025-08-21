@@ -395,6 +395,7 @@ public class ProfileFragment extends Fragment {
                 }
         );
 
+        // vp 제출 위해서 pin 입력
         pinActivityVerifyResultLauncher = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(),
             new ActivityResultCallback<ActivityResult>() {
@@ -404,6 +405,7 @@ public class ProfileFragment extends Fragment {
                     if (result.getResultCode() == Activity.RESULT_OK) {
                         String pin = result.getData().getStringExtra("pin");
                         if(result.getData().getIntExtra("reg", 0) == Constants.PIN_TYPE_USE_KEY) {
+                            // vp 제출
                             submitVp(pin);
                         }
                     } else if(result.getResultCode() == Activity.RESULT_CANCELED){
@@ -519,6 +521,7 @@ public class ProfileFragment extends Fragment {
     private void submitVp(String pin){
         VerifyVp verifyVp = VerifyVp.getInstance(activity);
         try {
+            //vp 제출
             verifyVp.verifyVpProcess(pin).get();
 
             Bundle bundle = new Bundle();
