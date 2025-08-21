@@ -41,6 +41,8 @@ import androidx.fragment.app.Fragment;
 import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
 
+import com.zkrypto.snark.SNARK;
+
 import org.omnione.did.ca.R;
 import org.omnione.did.ca.config.Config;
 import org.omnione.did.ca.config.Constants;
@@ -285,7 +287,19 @@ public class VcListFragment extends Fragment {
                                 } catch (Exception e) {
                                     throw new RuntimeException(e);
                                 }
+
+                                String[] circuit = SNARK.generateCircuit();
+                                String ek = circuit[0];
+                                String vk = circuit[1];
+
+                                vcList.forEach(vc -> {
+                                    if(vc.getCredentialSubject().)
+                                });
+
+                                String proof = SNARK.generateProof(ek, grad, emp, license, pkGrad, pkEmp, pkLicense, "회계학과", "경영학과", "경제학과", "4년제", "전문대", "1754374747", "126230400", "공인회계사");
+
                                 vcList.forEach(vc -> vc.getProof());
+
                             }
                         } else if(result.getResultCode() == Activity.RESULT_CANCELED){
                             CaUtil.showErrorDialog(activity,"[Information] canceled by user");
