@@ -301,10 +301,6 @@ public class VcListFragment extends Fragment {
                                     throw new RuntimeException(e);
                                 }
 
-                                String[] circuit = SNARK.generateCircuit();
-                                String ek = circuit[0];
-                                String vk = circuit[1];
-
                                 AtomicReference<EducationVc> educationVc = new AtomicReference<>();
                                 AtomicReference<ExperienceVc> experienceVc = new AtomicReference<>();
                                 AtomicReference<LicenseVc> licenseVc = new AtomicReference<>();
@@ -346,14 +342,14 @@ public class VcListFragment extends Fragment {
                                         throw new RuntimeException(e);
                                     }
                                 });
-                                
-                                // 수정
+
+                                String ek = "";
 
                                 String proof = SNARK.generateProof(ek, education.get().getProof().getProofValue(),
                                         experience.get().getProof().getProofValue(),
-                                        license.get().getProof().getProofValue(), pk, pk, pk, "회계학과", "경영학과", "경제학과", "4년제", "전문대", "1754374747", "126230400", "공인회계사");
+                                        license.get().getProof().getProofValue(), pk, pk, pk, applyPayload.getMajor1(), applyPayload.getMajor2(), applyPayload.getMajor3(), applyPayload.getUnivType1(), applyPayload.getUnivType2(), applyPayload.getCurrentTime(), applyPayload.getEmployPeriod(), applyPayload.getLicense());
 
-                                verifySnark(applyPayload.getMemberId(), proof, vk, )
+                                verifySnark(applyPayload.getApplicationId(), proof);
                             }
                         } else if(result.getResultCode() == Activity.RESULT_CANCELED){
                             CaUtil.showErrorDialog(activity,"[Information] canceled by user");
@@ -452,11 +448,11 @@ public class VcListFragment extends Fragment {
                 });
     }
 
-    public CompletableFuture<String> verifySnark(String memberId, String proof, String vk, String[] value) {
+    public CompletableFuture<String> verifySnark(String applicationId, String proof) {
         String api = "/ca/offer/verify";
         HttpUrlConnection httpUrlConnection = new HttpUrlConnection();
 
-        ApplyConfirmCommand command = new ApplyConfirmCommand(memberId, proof, vk, value);
+        ApplyConfirmCommand command = new ApplyConfirmCommand(applicationId, proof);
 
         return CompletableFuture.supplyAsync(() -> httpUrlConnection.send(activity, Config.CORE_URL + api, "POST", command.toJson()))
                 .exceptionally(ex -> {

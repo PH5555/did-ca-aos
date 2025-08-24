@@ -8,16 +8,12 @@ import org.omnione.did.sdk.datamodel.util.JsonSortUtil;
 import org.omnione.did.sdk.datamodel.util.StringEnumAdapterFactory;
 
 public class ApplyConfirmCommand {
-    private String memberId;
+    private String applicationId;
     private String proof;
-    private String vk;
-    private String[] value;
 
-    public ApplyConfirmCommand(String memberId, String proof, String vk, String[] value) {
-        this.memberId = memberId;
+    public ApplyConfirmCommand(String applicationId, String proof) {
+        this.applicationId = applicationId;
         this.proof = proof;
-        this.vk = vk;
-        this.value = value;
     }
 
     public String toJson() {
