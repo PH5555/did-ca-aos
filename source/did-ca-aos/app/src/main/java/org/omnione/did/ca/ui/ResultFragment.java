@@ -56,7 +56,11 @@ public class ResultFragment extends Fragment {
             resultTxt.setText("You can now add your certificate");
             vc.setVisibility(View.VISIBLE);
             vp.setVisibility(View.GONE);
-        } else {
+        } else if(requireArguments().getString("type").equals("apply")) {
+            resultTxt.setText("SNARK 증명 생성이 완료되었습니다. 채용 페이지로 돌아가 '확인' 버튼을 눌러 다음 단계를 진행해 주세요");
+            vc.setVisibility(View.VISIBLE);
+            vp.setVisibility(View.GONE);
+        }else {
             resultTxt.setText("You Successfully shared information with Opendid");
             vc.setVisibility(View.GONE);
             vp.setVisibility(View.VISIBLE);
@@ -66,7 +70,7 @@ public class ResultFragment extends Fragment {
         button.setOnClickListener(new Button.OnClickListener() {
             @Override
             public void onClick(View v) {
-               navController.navigate(R.id.action_resultFragment_to_vcListFragment);
+                navController.navigate(R.id.action_resultFragment_to_vcListFragment);
             }
         });
     }
@@ -77,3 +81,4 @@ public class ResultFragment extends Fragment {
         activity = (Activity) context;
     }
 }
+

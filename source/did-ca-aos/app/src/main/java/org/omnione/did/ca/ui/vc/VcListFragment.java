@@ -19,6 +19,7 @@ package org.omnione.did.ca.ui.vc;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -40,11 +41,6 @@ import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
-
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.zkrypto.snark.SNARK;
-
 import org.omnione.did.ca.R;
 import org.omnione.did.ca.config.Config;
 import org.omnione.did.ca.config.Constants;
@@ -82,6 +78,10 @@ import org.omnione.did.sdk.datamodel.zkp.Credential;
 import org.omnione.did.sdk.utility.Errors.UtilityException;
 import org.omnione.did.sdk.utility.MultibaseUtils;
 import org.omnione.did.sdk.wallet.walletservice.exception.WalletException;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -293,63 +293,14 @@ public class VcListFragment extends Fragment {
                                 }
                             } else if(payloadData.getPayloadType().equals("APPLY")) {
                                 CaLog.d("snark for apply");
+
+
                                 ApplyPayload applyPayload = MessageUtil.deserialize(payload, ApplyPayload.class);
-                                List<VerifiableCredential> vcList;
-                                try {
-                                    vcList = walletApi.getAllCredentials(hWalletToken);
-                                } catch (Exception e) {
-                                    throw new RuntimeException(e);
-                                }
+                                verifySnark(applyPayload.getApplicationId(), "");
 
-                                AtomicReference<EducationVc> educationVc = new AtomicReference<>();
-                                AtomicReference<ExperienceVc> experienceVc = new AtomicReference<>();
-                                AtomicReference<LicenseVc> licenseVc = new AtomicReference<>();
-
-                                AtomicReference<VerifiableCredential> education = new AtomicReference<>();
-                                AtomicReference<VerifiableCredential> experience = new AtomicReference<>();
-                                AtomicReference<VerifiableCredential> license = new AtomicReference<>();
-
-                                String pk = "";
-                                try {
-                                    pk = getPublicKey().get();
-                                } catch (Exception e) {
-                                    throw new RuntimeException(e);
-                                }
-
-                                vcList.forEach(vc -> {
-                                    ObjectMapper objectMapper = new ObjectMapper();
-                                    Map<String, Object> data = new HashMap<>();
-                                    vc.getCredentialSubject().getClaims().forEach(claim -> {
-                                        data.put(claim.getCaption(), claim.getValue());
-                                    });
-                                    String jsonString = "";
-                                    try {
-                                        jsonString = objectMapper.writeValueAsString(data);
-
-                                        if(BaseVc.checkVcFormat(jsonString, ResumeType.EDUCATION)) {
-                                            educationVc.set(BaseVc.mappingEducation(jsonString));
-                                            education.set(vc);
-                                        }
-                                        else if(BaseVc.checkVcFormat(jsonString, ResumeType.LICENSE)) {
-                                            licenseVc.set(BaseVc.mappingLicense(jsonString));
-                                            license.set(vc);
-                                        }
-                                        else if(BaseVc.checkVcFormat(jsonString, ResumeType.EXPERIENCE)) {
-                                            experienceVc.set(BaseVc.mappingExperience(jsonString));
-                                            experience.set(vc);
-                                        }
-                                    } catch (JsonProcessingException e) {
-                                        throw new RuntimeException(e);
-                                    }
-                                });
-
-                                String ek = "";
-
-                                String proof = SNARK.generateProof(ek, education.get().getProof().getProofValue(),
-                                        experience.get().getProof().getProofValue(),
-                                        license.get().getProof().getProofValue(), pk, pk, pk, applyPayload.getMajor1(), applyPayload.getMajor2(), applyPayload.getMajor3(), applyPayload.getUnivType1(), applyPayload.getUnivType2(), applyPayload.getCurrentTime(), applyPayload.getEmployPeriod(), applyPayload.getLicense());
-
-                                verifySnark(applyPayload.getApplicationId(), proof);
+                                Bundle bundle = new Bundle();
+                                bundle.putString("type","apply");
+                                navController.navigate(R.id.action_vcListFragment_to_profileFragment, bundle);
                             }
                         } else if(result.getResultCode() == Activity.RESULT_CANCELED){
                             CaUtil.showErrorDialog(activity,"[Information] canceled by user");
@@ -428,10 +379,10 @@ public class VcListFragment extends Fragment {
         HttpUrlConnection httpUrlConnection = new HttpUrlConnection();
 
         return CompletableFuture.supplyAsync(() -> httpUrlConnection.send(activity, schemaId, "GET", ""))
-            .thenCompose(CompletableFuture::completedFuture)
-            .exceptionally(ex -> {
-                throw new CompletionException(ex);
-        });
+                .thenCompose(CompletableFuture::completedFuture)
+                .exceptionally(ex -> {
+                    throw new CompletionException(ex);
+                });
     }
 
     public CompletableFuture<String> getPublicKey() {
@@ -536,3 +487,4 @@ public class VcListFragment extends Fragment {
         customDialog.show();
     }
 }
+

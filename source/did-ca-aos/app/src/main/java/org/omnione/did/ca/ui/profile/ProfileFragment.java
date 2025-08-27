@@ -22,6 +22,8 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -100,6 +102,7 @@ public class ProfileFragment extends Fragment {
     private String authNonce;
     private ActivityResultLauncher<Intent> pinActivityIssueResultLauncher;
     private ActivityResultLauncher<Intent> pinActivityVerifyResultLauncher;
+    private ActivityResultLauncher<Intent> pinActivityApplyResultLauncher;
     private TextView title, message, textProfileTitle, textIssueDate, description, requireClaim;
     private ImageView imageView;
     private LinearLayout issueDsc, verifyDsc;
@@ -156,8 +159,13 @@ public class ProfileFragment extends Fragment {
             description.setText("The Identity certificate issued by " + issueProfile.getProfile().issuer.getName() + " is stored In the certificate.");
             issueDsc.setVisibility(View.VISIBLE);
             verifyDsc.setVisibility(View.GONE);
-        } else if(requireArguments().getString("type").equals("webview")) {
-
+        } else if(requireArguments().getString("type").equals("apply")) {
+            title.setText("공고에 지원하기 위해 지원조건을 확인합니다\n");
+            message.setVisibility(View.GONE);
+            textProfileTitle.setText("내 지갑 내 모든 VC");
+            textIssueDate.setVisibility(View.GONE);
+            description.setText("지갑에 담긴 모든 VC를 활용해 조건을 확인하는 SNARK 증명을 생성하며, 이 과정에서 개인정보는 철저히 보호됩니다.");
+            requireClaim.setVisibility(View.GONE);
         } else {
             Preference.setProfile(getContext(), requireArguments().getString("result"));
 
@@ -290,7 +298,14 @@ public class ProfileFragment extends Fragment {
                 }
                 new Thread(() -> requireActivity().runOnUiThread(() -> progressCircle.dismiss())).start();
 
-            } else {
+            } else if(type.equals("apply")) {
+                //todo; 지원
+                Intent intent = new Intent(getContext(), PinActivity.class);
+                intent.putExtra(Constants.INTENT_IS_REGISTRATION, false);
+                intent.putExtra(Constants.INTENT_TYPE_AUTHENTICATION, Constants.PIN_TYPE_USE_KEY);
+                pinActivityVerifyResultLauncher.launch(intent);
+            }
+            else {
                 new Thread(() -> requireActivity().runOnUiThread(() -> progressCircle.dismiss())).start();
                 imageView.setImageResource(R.drawable.user_icon);
 
@@ -370,7 +385,7 @@ public class ProfileFragment extends Fragment {
 
         // activity callback
         pinActivityIssueResultLauncher = registerForActivityResult(
-            new ActivityResultContracts.StartActivityForResult(),
+                new ActivityResultContracts.StartActivityForResult(),
                 result -> {
                     new Thread(() -> requireActivity().runOnUiThread(() -> progressCircle.dismiss())).start();
                     if (result.getResultCode() == Activity.RESULT_OK) {
@@ -397,22 +412,46 @@ public class ProfileFragment extends Fragment {
 
         // vp 제출 위해서 pin 입력
         pinActivityVerifyResultLauncher = registerForActivityResult(
-            new ActivityResultContracts.StartActivityForResult(),
-            new ActivityResultCallback<ActivityResult>() {
-                @Override
-                public void onActivityResult(ActivityResult result) {
-                    new Thread(() -> requireActivity().runOnUiThread(() -> progressCircle.dismiss())).start();
-                    if (result.getResultCode() == Activity.RESULT_OK) {
-                        String pin = result.getData().getStringExtra("pin");
-                        if(result.getData().getIntExtra("reg", 0) == Constants.PIN_TYPE_USE_KEY) {
-                            // vp 제출
-                            submitVp(pin);
+                new ActivityResultContracts.StartActivityForResult(),
+                new ActivityResultCallback<ActivityResult>() {
+                    @Override
+                    public void onActivityResult(ActivityResult result) {
+                        new Thread(() -> requireActivity().runOnUiThread(() -> progressCircle.dismiss())).start();
+                        if (result.getResultCode() == Activity.RESULT_OK) {
+                            String pin = result.getData().getStringExtra("pin");
+                            if(result.getData().getIntExtra("reg", 0) == Constants.PIN_TYPE_USE_KEY) {
+                                // vp 제출
+                                submitVp(pin);
+                            }
+                        } else if(result.getResultCode() == Activity.RESULT_CANCELED){
+                            CaUtil.showErrorDialog(activity,"[Information] canceled by user");
                         }
-                    } else if(result.getResultCode() == Activity.RESULT_CANCELED){
-                        CaUtil.showErrorDialog(activity,"[Information] canceled by user");
                     }
                 }
-            }
+        );
+
+        pinActivityApplyResultLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                new ActivityResultCallback<ActivityResult>() {
+                    @Override
+                    public void onActivityResult(ActivityResult result) {
+                        new Thread(() -> requireActivity().runOnUiThread(() -> progressCircle.dismiss())).start();
+                        if (result.getResultCode() == Activity.RESULT_OK) {
+                            String pin = result.getData().getStringExtra("pin");
+
+                            new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+                                @Override
+                                public void run() {
+                                    Bundle bundle = new Bundle();
+                                    bundle.putString("type", "apply");
+                                    navController.navigate(R.id.action_profileFragment_to_resultFragment, bundle);
+                                }
+                            }, 3000);
+                        } else if(result.getResultCode() == Activity.RESULT_CANCELED){
+                            CaUtil.showErrorDialog(activity,"[Information] canceled by user");
+                        }
+                    }
+                }
         );
     }
 
@@ -540,3 +579,4 @@ public class ProfileFragment extends Fragment {
         }
     }
 }
+
