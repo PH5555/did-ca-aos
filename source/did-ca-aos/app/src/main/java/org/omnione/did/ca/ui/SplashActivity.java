@@ -70,6 +70,7 @@ public class SplashActivity extends AppCompatActivity {
         CommunicationLogger communicationLogger = CommunicationLogger.getInstance();
         communicationLogger.enable();
 
+
         progressCircle = new ProgressCircle(this);
         progressCircle.show();
         Handler handler = new Handler();
