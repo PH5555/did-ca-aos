@@ -18,14 +18,14 @@ package org.omnione.did.ca.config;
 
 public class Config {
     //////////// SERVER URL ////////////////
-    public final static String CAS_URL = "http://192.168.3.130:18094"; //dev server
-    public final static String TAS_URL = "http://192.168.3.130:18090"; //dev server
-    public final static String VERIFIER_URL = "http://192.168.3.130:18092"; //dev server
-        public final static String DEMO_URL = "http://192.168.3.130:18099"; //dev
-    public final static String WALLET_URL = "http://192.168.3.130:18095"; //dev
-    public final static String API_GATEWAY_URL = "http://192.168.3.130:18093"; //dev
+    public final static String CAS_URL = "http://192.168.0.207:8094"; //dev server
+    public final static String TAS_URL = "http://192.168.0.207:8090"; //dev server
+    public final static String VERIFIER_URL = "http://192.168.0.207:8092"; //dev server
+        public final static String DEMO_URL = "http://192.168.0.207:8099"; //dev
+    public final static String WALLET_URL = "http://192.168.0.207:8095"; //dev
+    public final static String API_GATEWAY_URL = "http://192.168.0.207:8093"; //dev
 
-    public final static String CORE_URL = "http://192.168.3.130:8080";
+    public final static String CORE_URL = "http://192.168.0.221:8080";
 
     //////////// pin config ////////////////
     public final static int PIN_MAX_VALUE = 6;

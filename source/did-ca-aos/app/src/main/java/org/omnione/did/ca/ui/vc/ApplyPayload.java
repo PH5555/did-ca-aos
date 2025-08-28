@@ -4,7 +4,7 @@ import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
 
 public class ApplyPayload {
-    @SerializedName("memberId")
+    @SerializedName("applicationId")
     @Expose
     private String applicationId;
     @SerializedName("major1")

@@ -299,11 +299,10 @@ public class ProfileFragment extends Fragment {
                 new Thread(() -> requireActivity().runOnUiThread(() -> progressCircle.dismiss())).start();
 
             } else if(type.equals("apply")) {
-                //todo; 지원
                 Intent intent = new Intent(getContext(), PinActivity.class);
                 intent.putExtra(Constants.INTENT_IS_REGISTRATION, false);
                 intent.putExtra(Constants.INTENT_TYPE_AUTHENTICATION, Constants.PIN_TYPE_USE_KEY);
-                pinActivityVerifyResultLauncher.launch(intent);
+                pinActivityApplyResultLauncher.launch(intent);
             }
             else {
                 new Thread(() -> requireActivity().runOnUiThread(() -> progressCircle.dismiss())).start();
