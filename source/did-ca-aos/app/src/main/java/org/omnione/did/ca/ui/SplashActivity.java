@@ -70,9 +70,6 @@ public class SplashActivity extends AppCompatActivity {
         CommunicationLogger communicationLogger = CommunicationLogger.getInstance();
         communicationLogger.enable();
 
-        // snark library
-        System.loadLibrary("OpenDID_Hackathon");
-
         progressCircle = new ProgressCircle(this);
         progressCircle.show();
         Handler handler = new Handler();

@@ -159,7 +159,11 @@ public class ProfileFragment extends Fragment {
             description.setText("The Identity certificate issued by " + issueProfile.getProfile().issuer.getName() + " is stored In the certificate.");
             issueDsc.setVisibility(View.VISIBLE);
             verifyDsc.setVisibility(View.GONE);
-        } else if(requireArguments().getString("type").equals("apply")) {
+        }
+        else if(requireArguments().getString("type").equals("webview")){
+
+        }
+        else if(requireArguments().getString("type").equals("apply")) {
             title.setText("공고에 지원하기 위해 지원조건을 확인합니다\n");
             message.setVisibility(View.GONE);
             textProfileTitle.setText("내 지갑 내 모든 VC");
@@ -299,11 +303,10 @@ public class ProfileFragment extends Fragment {
                 new Thread(() -> requireActivity().runOnUiThread(() -> progressCircle.dismiss())).start();
 
             } else if(type.equals("apply")) {
-                //todo; 지원
                 Intent intent = new Intent(getContext(), PinActivity.class);
                 intent.putExtra(Constants.INTENT_IS_REGISTRATION, false);
                 intent.putExtra(Constants.INTENT_TYPE_AUTHENTICATION, Constants.PIN_TYPE_USE_KEY);
-                pinActivityVerifyResultLauncher.launch(intent);
+                pinActivityApplyResultLauncher.launch(intent);
             }
             else {
                 new Thread(() -> requireActivity().runOnUiThread(() -> progressCircle.dismiss())).start();
@@ -439,14 +442,10 @@ public class ProfileFragment extends Fragment {
                         if (result.getResultCode() == Activity.RESULT_OK) {
                             String pin = result.getData().getStringExtra("pin");
 
-                            new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-                                @Override
-                                public void run() {
-                                    Bundle bundle = new Bundle();
-                                    bundle.putString("type", "apply");
-                                    navController.navigate(R.id.action_profileFragment_to_resultFragment, bundle);
-                                }
-                            }, 3000);
+                            Bundle bundle = new Bundle();
+                            bundle.putString("type", "apply");
+                            bundle.putBoolean("result", requireArguments().getBoolean("result"));
+                            navController.navigate(R.id.action_profileFragment_to_resultFragment, bundle);
                         } else if(result.getResultCode() == Activity.RESULT_CANCELED){
                             CaUtil.showErrorDialog(activity,"[Information] canceled by user");
                         }

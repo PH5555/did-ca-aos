@@ -48,6 +48,7 @@ public class ResultFragment extends Fragment {
         super.onViewCreated(view, savedInstanceState);
         navController = Navigation.findNavController(view);
         TextView resultTxt = view.findViewById(R.id.message);
+        TextView titleTxt = view.findViewById(R.id.title);
         TextView nameView = view.findViewById(R.id.name);
         nameView.setText(Preference.getUsernameForDemo(activity));
         FrameLayout vc = view.findViewById(R.id.vc);
@@ -57,7 +58,13 @@ public class ResultFragment extends Fragment {
             vc.setVisibility(View.VISIBLE);
             vp.setVisibility(View.GONE);
         } else if(requireArguments().getString("type").equals("apply")) {
-            resultTxt.setText("SNARK 증명 생성이 완료되었습니다. 채용 페이지로 돌아가 '확인' 버튼을 눌러 다음 단계를 진행해 주세요");
+            if(requireArguments().getBoolean("result")) {
+                resultTxt.setText("공고 지원 조건을 만족합니다. 채용 페이지로 돌아가 '확인' 버튼을 눌러 다음 단계를 진행해 주세요");
+            }
+            else {
+                titleTxt.setText("FAIL");
+                resultTxt.setText("공고 지원 조건을 만족하지 않습니다.");
+            }
             vc.setVisibility(View.VISIBLE);
             vp.setVisibility(View.GONE);
         }else {

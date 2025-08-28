@@ -3,68 +3,43 @@ package org.omnione.did.ca.ui.vc;
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
 
+import java.io.Serializable;
+import java.util.List;
+
 public class ApplyPayload {
-    @SerializedName("memberId")
+    @SerializedName("applicationId")
     @Expose
     private String applicationId;
-    @SerializedName("major1")
+    @SerializedName("majorRequirement")
     @Expose
-    private String major1;
-    @SerializedName("major2")
+    private String majorRequirement;
+    @SerializedName("educationRequirement")
     @Expose
-    private String major2;
-    @SerializedName("major3")
+    private String educationRequirement;
+    @SerializedName("licenseRequirement")
     @Expose
-    private String major3;
-    @SerializedName("univType1")
+    private List<String> licenseRequirement;
+    @SerializedName("experienceRequirement")
     @Expose
-    private String univType1;
-    @SerializedName("univType2")
-    @Expose
-    private String univType2;
-    @SerializedName("currentTime")
-    @Expose
-    private String currentTime;
-    @SerializedName("employPeriod")
-    @Expose
-    private String employPeriod;
-    @SerializedName("license")
-    @Expose
-    private String license;
+    private int experienceRequirement;
 
     public String getApplicationId() {
         return applicationId;
     }
 
-    public String getMajor1() {
-        return major1;
+    public String getMajorRequirement() {
+        return majorRequirement;
     }
 
-    public String getMajor2() {
-        return major2;
+    public String getEducationRequirement() {
+        return educationRequirement;
     }
 
-    public String getMajor3() {
-        return major3;
+    public List<String> getLicenseRequirement() {
+        return licenseRequirement;
     }
 
-    public String getUnivType1() {
-        return univType1;
-    }
-
-    public String getUnivType2() {
-        return univType2;
-    }
-
-    public String getCurrentTime() {
-        return currentTime;
-    }
-
-    public String getEmployPeriod() {
-        return employPeriod;
-    }
-
-    public String getLicense() {
-        return license;
+    public int getExperienceRequirement() {
+        return experienceRequirement;
     }
 }

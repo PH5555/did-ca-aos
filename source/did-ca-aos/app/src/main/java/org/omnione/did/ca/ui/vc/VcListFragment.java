@@ -21,6 +21,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -41,6 +43,10 @@ import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.omnione.did.ca.R;
 import org.omnione.did.ca.config.Config;
 import org.omnione.did.ca.config.Constants;
@@ -63,6 +69,9 @@ import org.omnione.did.ca.ui.vc.dto.ResumeType;
 import org.omnione.did.ca.ui.vc.dto.request.ApplyConfirmCommand;
 import org.omnione.did.ca.ui.vc.dto.response.KeyPairResponse;
 import org.omnione.did.ca.util.CaUtil;
+import org.omnione.did.ca.util.DateFormatter;
+import org.omnione.did.ca.util.ListUtil;
+import org.omnione.did.ca.util.StringUtil;
 import org.omnione.did.sdk.core.api.WalletApi;
 import org.omnione.did.sdk.datamodel.common.enums.WalletTokenPurpose;
 import org.omnione.did.sdk.communication.exception.CommunicationException;
@@ -82,6 +91,7 @@ import org.omnione.did.sdk.wallet.walletservice.exception.WalletException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.time.Period;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -89,6 +99,8 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class VcListFragment extends Fragment {
@@ -102,6 +114,10 @@ public class VcListFragment extends Fragment {
     GridView gridView;
 
     ProgressCircle progressCircle;
+
+    ExecutorService executorService = Executors.newSingleThreadExecutor();
+
+    Handler mainThreadHandler = new Handler(Looper.getMainLooper());
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
@@ -293,14 +309,8 @@ public class VcListFragment extends Fragment {
                                 }
                             } else if(payloadData.getPayloadType().equals("APPLY")) {
                                 CaLog.d("snark for apply");
-
-
                                 ApplyPayload applyPayload = MessageUtil.deserialize(payload, ApplyPayload.class);
-                                verifySnark(applyPayload.getApplicationId(), "");
-
-                                Bundle bundle = new Bundle();
-                                bundle.putString("type","apply");
-                                navController.navigate(R.id.action_vcListFragment_to_profileFragment, bundle);
+                                loadUserVc(applyPayload);
                             }
                         } else if(result.getResultCode() == Activity.RESULT_CANCELED){
                             CaUtil.showErrorDialog(activity,"[Information] canceled by user");
@@ -374,7 +384,85 @@ public class VcListFragment extends Fragment {
         requireActivity().getOnBackPressedDispatcher().addCallback(this, onBackPressedCallback);
     }
 
+    private void loadUserVc(ApplyPayload payload) {
+        executorService.execute(() -> {
+            List<VerifiableCredential> vcList;
+            try {
+                vcList = walletApi.getAllCredentials(hWalletToken);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
 
+            List<EducationVc> educationVcList = new ArrayList<>();
+            List<ExperienceVc> experienceVcList = new ArrayList<>();
+            List<LicenseVc> licenseVcList = new ArrayList<>();
+
+            vcList.forEach(vc -> {
+                ObjectMapper objectMapper = new ObjectMapper();
+                Map<String, Object> data = new HashMap<>();
+                vc.getCredentialSubject().getClaims().forEach(claim -> {
+                    data.put(claim.getCaption(), claim.getValue());
+                });
+
+                String jsonString = "";
+                try {
+                    jsonString = objectMapper.writeValueAsString(data);
+
+                    if(BaseVc.checkVcFormat(jsonString, ResumeType.EDUCATION)) {
+                        educationVcList.add(BaseVc.mappingEducation(jsonString));
+                    }
+                    else if(BaseVc.checkVcFormat(jsonString, ResumeType.LICENSE)) {
+                        licenseVcList.add(BaseVc.mappingLicense(jsonString));
+                    }
+                    else if(BaseVc.checkVcFormat(jsonString, ResumeType.EXPERIENCE)) {
+                        experienceVcList.add(BaseVc.mappingExperience(jsonString));
+                    }
+
+                } catch (JsonProcessingException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+
+            Boolean result = checkCondition(payload, educationVcList, licenseVcList, experienceVcList);
+
+            if(result) {
+                verifySnark(payload.getApplicationId(), "");
+            }
+
+            mainThreadHandler.post(() -> {
+                Bundle bundle = new Bundle();
+                bundle.putString("type","apply");
+                bundle.putBoolean("result", result);
+                navController.navigate(R.id.action_vcListFragment_to_profileFragment, bundle);
+            });
+        });
+    }
+
+    public Boolean checkCondition(ApplyPayload payload, List<EducationVc> educationVcList, List<LicenseVc> licenseVcList, List<ExperienceVc> experienceVcList) {
+        // 학력 확인
+        if(payload.getEducationRequirement().equals("4년제") && educationVcList.stream().noneMatch(vc -> vc.getUnivType().equals("4년제"))) {
+            return false;
+        }else if(payload.getEducationRequirement().equals("2년제") && educationVcList.stream().noneMatch(vc -> vc.getUnivType().equals("4년제") || vc.getUnivType().equals("2년제"))) {
+            return false;
+        }
+
+        // 자격증 확인
+        if(!ListUtil.isEmpty(payload.getLicenseRequirement()) && licenseVcList.stream().noneMatch(vc -> payload.getLicenseRequirement().contains(vc.getLicense()))) {
+            return false;
+        }
+
+        // 학과 확인
+        if(!StringUtil.isEmpty(payload.getMajorRequirement()) && educationVcList.stream().noneMatch(vc -> vc.getMaj().equals(payload.getMajorRequirement()))) {
+            return false;
+        }
+
+        // 경력 확인
+        if(payload.getExperienceRequirement() > 0 && experienceVcList.stream().noneMatch(vc -> payload.getExperienceRequirement() <= Period.between(DateFormatter.format(vc.getStartdate()), DateFormatter.format(vc.getExpdate())).getYears())) {
+            return false;
+        }
+
+        return true;
+    }
     public CompletableFuture<String> getVcSchema(String schemaId){
         HttpUrlConnection httpUrlConnection = new HttpUrlConnection();
 
@@ -402,8 +490,8 @@ public class VcListFragment extends Fragment {
     public CompletableFuture<String> verifySnark(String applicationId, String proof) {
         String api = "/ca/offer/verify";
         HttpUrlConnection httpUrlConnection = new HttpUrlConnection();
-
-        ApplyConfirmCommand command = new ApplyConfirmCommand(applicationId, proof);
+        CaLog.d("dong: " + applicationId);
+        ApplyConfirmCommand command = new ApplyConfirmCommand(applicationId, "proof");
 
         return CompletableFuture.supplyAsync(() -> httpUrlConnection.send(activity, Config.CORE_URL + api, "POST", command.toJson()))
                 .exceptionally(ex -> {
