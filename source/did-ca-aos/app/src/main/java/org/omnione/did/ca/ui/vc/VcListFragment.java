@@ -46,6 +46,7 @@ import androidx.navigation.Navigation;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.zkrypto.snark.SNARK;
 
 import org.omnione.did.ca.R;
 import org.omnione.did.ca.config.Config;
@@ -91,7 +92,12 @@ import org.omnione.did.sdk.wallet.walletservice.exception.WalletException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.LocalDate;
 import java.time.Period;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -112,6 +118,10 @@ public class VcListFragment extends Fragment {
     ActivityResultLauncher<Intent> qrActivityResultLauncher;
     String hWalletToken;
     GridView gridView;
+
+    List<EducationVc> educationVcList = new ArrayList<>();
+    List<ExperienceVc> experienceVcList = new ArrayList<>();
+    List<LicenseVc> licenseVcList = new ArrayList<>();
 
     ProgressCircle progressCircle;
 
@@ -310,7 +320,13 @@ public class VcListFragment extends Fragment {
                             } else if(payloadData.getPayloadType().equals("APPLY")) {
                                 CaLog.d("snark for apply");
                                 ApplyPayload applyPayload = MessageUtil.deserialize(payload, ApplyPayload.class);
-                                loadUserVc(applyPayload);
+
+                                loadUserVc();
+
+                                String ek = loadKeyFromFile(getContext(), "ek.bin");
+                                String vk = loadKeyFromFile(getContext(), "vk.bin");
+
+                                generateProof(ek, vk, applyPayload, educationVcList, licenseVcList, experienceVcList);
                             }
                         } else if(result.getResultCode() == Activity.RESULT_CANCELED){
                             CaUtil.showErrorDialog(activity,"[Information] canceled by user");
@@ -384,7 +400,7 @@ public class VcListFragment extends Fragment {
         requireActivity().getOnBackPressedDispatcher().addCallback(this, onBackPressedCallback);
     }
 
-    private void loadUserVc(ApplyPayload payload) {
+    private void loadUserVc() {
         executorService.execute(() -> {
             List<VerifiableCredential> vcList;
             try {
@@ -392,10 +408,6 @@ public class VcListFragment extends Fragment {
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
-
-            List<EducationVc> educationVcList = new ArrayList<>();
-            List<ExperienceVc> experienceVcList = new ArrayList<>();
-            List<LicenseVc> licenseVcList = new ArrayList<>();
 
             vcList.forEach(vc -> {
                 ObjectMapper objectMapper = new ObjectMapper();
@@ -421,19 +433,6 @@ public class VcListFragment extends Fragment {
                 } catch (JsonProcessingException e) {
                     throw new RuntimeException(e);
                 }
-            });
-
-            Boolean result = checkCondition(payload, educationVcList, licenseVcList, experienceVcList);
-
-            if(result) {
-                verifySnark(payload.getApplicationId(), "");
-            }
-
-            mainThreadHandler.post(() -> {
-                Bundle bundle = new Bundle();
-                bundle.putString("type","apply");
-                bundle.putBoolean("result", result);
-                navController.navigate(R.id.action_vcListFragment_to_profileFragment, bundle);
             });
         });
     }
@@ -463,6 +462,65 @@ public class VcListFragment extends Fragment {
 
         return true;
     }
+
+    public void generateProofWithoutSnark(ApplyPayload payload) {
+        executorService.execute(() -> {
+            Boolean result = checkCondition(payload, educationVcList, licenseVcList, experienceVcList);
+
+            if(result) {
+                verifySnark(payload.getApplicationId(), "");
+            }
+
+            mainThreadHandler.post(() -> {
+                Bundle bundle = new Bundle();
+                bundle.putString("type","apply");
+                bundle.putBoolean("result", result);
+                navController.navigate(R.id.action_vcListFragment_to_profileFragment, bundle);
+            });
+        });
+    }
+
+    public void generateProof(String ek, String vk, ApplyPayload payload, List<EducationVc> educationVcList, List<LicenseVc> licenseVcList, List<ExperienceVc> experienceVcList) {
+        executorService.execute(() -> {
+            String graduationCredential = "";
+            if(!ListUtil.isEmpty(educationVcList)) {
+                EducationVc vc = educationVcList.get(0);
+                graduationCredential = SNARK.generateGraduationCredential(vc.getCi(), vc.getName(), vc.getUniv(), vc.getUnivType(), vc.getMaj(), vc.getDegree(), vc.getRegisterNumber());
+            }
+
+            String licenseCredential = "";
+            if(!ListUtil.isEmpty(licenseVcList)) {
+                LicenseVc vc = licenseVcList.get(0);
+                licenseCredential = SNARK.generateLicenseCredential(vc.getCi(), vc.getName(), vc.getPid(), vc.getLicense(), vc.getExpired());
+            }
+
+            String employmentCredential = "";
+            if(!ListUtil.isEmpty(experienceVcList)) {
+                ExperienceVc vc = experienceVcList.get(0);
+                employmentCredential = SNARK.generateEmploymentCredential(vc.getCi(), vc.getName(), vc.getStartdate(), vc.getExpdate(), vc.getCompany(), vc.getDepartment(), vc.getPosition());
+            }
+
+            String proof = SNARK.generateProof(ek, graduationCredential, employmentCredential, licenseCredential, payload.getMajorRequirement(), "", "", payload.getEducationRequirement(), "",
+                    String.valueOf(payload.getCreatedAt().toEpochSecond(ZoneOffset.UTC)),
+                    String.valueOf(LocalDate.of(1970, 1, 1).plusYears(payload.getExperienceRequirement()).atStartOfDay().toEpochSecond(ZoneOffset.UTC)), payload.getLicenseRequirement().get(0));
+
+            boolean result = SNARK.verify(vk, proof, payload.getMajorRequirement(), "", "", payload.getEducationRequirement(), "",
+                    String.valueOf(payload.getCreatedAt().toEpochSecond(ZoneOffset.UTC)),
+                    String.valueOf(LocalDate.of(1970, 1, 1).plusYears(payload.getExperienceRequirement()).atStartOfDay().toEpochSecond(ZoneOffset.UTC)), payload.getLicenseRequirement().get(0));
+
+            if(result) {
+                verifySnark(payload.getApplicationId(), proof);
+            }
+
+            mainThreadHandler.post(() -> {
+                Bundle bundle = new Bundle();
+                bundle.putString("type","apply");
+                bundle.putBoolean("result", result);
+                navController.navigate(R.id.action_vcListFragment_to_profileFragment, bundle);
+            });
+        });
+    }
+
     public CompletableFuture<String> getVcSchema(String schemaId){
         HttpUrlConnection httpUrlConnection = new HttpUrlConnection();
 
@@ -473,25 +531,24 @@ public class VcListFragment extends Fragment {
                 });
     }
 
-    public CompletableFuture<String> getPublicKey() {
-        String api = "/ca/key";
-        HttpUrlConnection httpUrlConnection = new HttpUrlConnection();
-
-        return CompletableFuture.supplyAsync(() -> httpUrlConnection.send(activity, Config.CORE_URL + api, "GET", ""))
-                .thenApply(keyPair -> {
-                    KeyPairResponse key = MessageUtil.deserialize(keyPair, KeyPairResponse.class);
-                    return key.getPublicKey();
-                })
-                .exceptionally(ex -> {
-                    throw new CompletionException(ex);
-                });
+    public String loadKeyFromFile(Context context, String fileName) {
+        try (InputStream inputStream = context.getAssets().open(fileName)) {
+            byte[] bytes = null;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                bytes = inputStream.readAllBytes();
+            }
+            return new String(bytes, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 
     public CompletableFuture<String> verifySnark(String applicationId, String proof) {
         String api = "/ca/offer/verify";
         HttpUrlConnection httpUrlConnection = new HttpUrlConnection();
         CaLog.d("dong: " + applicationId);
-        ApplyConfirmCommand command = new ApplyConfirmCommand(applicationId, "proof");
+        ApplyConfirmCommand command = new ApplyConfirmCommand(applicationId, proof);
 
         return CompletableFuture.supplyAsync(() -> httpUrlConnection.send(activity, Config.CORE_URL + api, "POST", command.toJson()))
                 .exceptionally(ex -> {

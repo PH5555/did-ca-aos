@@ -4,6 +4,7 @@ import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
 
 import java.io.Serializable;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public class ApplyPayload {
@@ -23,6 +24,10 @@ public class ApplyPayload {
     @Expose
     private int experienceRequirement;
 
+    @SerializedName("createdAt")
+    @Expose
+    private LocalDateTime createdAt;
+
     public String getApplicationId() {
         return applicationId;
     }
@@ -41,5 +46,9 @@ public class ApplyPayload {
 
     public int getExperienceRequirement() {
         return experienceRequirement;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
     }
 }

@@ -25,7 +25,9 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
@@ -34,6 +36,7 @@ import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.iid.FirebaseInstanceId;
 import com.google.firebase.iid.InstanceIdResult;
+import com.zkrypto.snark.SNARK;
 
 import org.omnione.did.ca.R;
 import org.omnione.did.ca.config.Config;
@@ -50,6 +53,9 @@ import org.omnione.did.sdk.utility.Errors.UtilityException;
 import org.omnione.did.sdk.wallet.walletservice.exception.WalletException;
 import org.omnione.did.sdk.wallet.walletservice.logger.WalletLogger;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 
@@ -70,6 +76,7 @@ public class SplashActivity extends AppCompatActivity {
         CommunicationLogger communicationLogger = CommunicationLogger.getInstance();
         communicationLogger.enable();
 
+        System.loadLibrary("OpenDID_Hackathon");
 
         progressCircle = new ProgressCircle(this);
         progressCircle.show();
