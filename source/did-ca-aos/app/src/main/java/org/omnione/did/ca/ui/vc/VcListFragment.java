@@ -96,6 +96,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.Period;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -482,31 +483,46 @@ public class VcListFragment extends Fragment {
 
     public void generateProof(String ek, String vk, ApplyPayload payload, List<EducationVc> educationVcList, List<LicenseVc> licenseVcList, List<ExperienceVc> experienceVcList) {
         executorService.execute(() -> {
+            String defaultCi = "wEi9oYSuekQGxT9MV4rKHG4CO+Zrp+onhLIIuembI8jx/0PLF5Ne3oMBxvUFlN4UmsgjeNErZfmpCVUFHsv8nq==";
             String graduationCredential = "";
             if(!ListUtil.isEmpty(educationVcList)) {
                 EducationVc vc = educationVcList.get(0);
-                graduationCredential = SNARK.generateGraduationCredential(vc.getCi(), vc.getName(), vc.getUniv(), vc.getUnivType(), vc.getMaj(), vc.getDegree(), vc.getRegisterNumber());
+                graduationCredential = SNARK.generateGraduationCredential(defaultCi, vc.getName(), vc.getUniv(), vc.getUnivType(), vc.getMaj(), vc.getDegree(), vc.getRegisterNumber());
             }
 
             String licenseCredential = "";
             if(!ListUtil.isEmpty(licenseVcList)) {
                 LicenseVc vc = licenseVcList.get(0);
-                licenseCredential = SNARK.generateLicenseCredential(vc.getCi(), vc.getName(), vc.getPid(), vc.getLicense(), vc.getExpired());
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    licenseCredential = SNARK.generateLicenseCredential(defaultCi, vc.getName(), "000000-0000000", vc.getLicense(), String.valueOf(DateFormatter.format(vc.getExpired()).toEpochSecond(LocalTime.MIN, ZoneOffset.UTC)));
+                }
             }
 
             String employmentCredential = "";
             if(!ListUtil.isEmpty(experienceVcList)) {
                 ExperienceVc vc = experienceVcList.get(0);
-                employmentCredential = SNARK.generateEmploymentCredential(vc.getCi(), vc.getName(), vc.getStartdate(), vc.getExpdate(), vc.getCompany(), vc.getDepartment(), vc.getPosition());
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    employmentCredential = SNARK.generateEmploymentCredential(defaultCi, vc.getName(), String.valueOf(DateFormatter.format(vc.getStartdate()).toEpochSecond(LocalTime.MIN, ZoneOffset.UTC)), String.valueOf(DateFormatter.format(vc.getExpdate()).toEpochSecond(LocalTime.MIN, ZoneOffset.UTC)), vc.getCompany(), vc.getDepartment(), vc.getPosition());
+                }
             }
 
-            String proof = SNARK.generateProof(ek, graduationCredential, employmentCredential, licenseCredential, payload.getMajorRequirement(), "", "", payload.getEducationRequirement(), "",
-                    String.valueOf(payload.getCreatedAt().toEpochSecond(ZoneOffset.UTC)),
-                    String.valueOf(LocalDate.of(1970, 1, 1).plusYears(payload.getExperienceRequirement()).atStartOfDay().toEpochSecond(ZoneOffset.UTC)), payload.getLicenseRequirement().get(0));
+            String employTime = String.valueOf(LocalDate.of(1970, 1, 1).plusYears(payload.getExperienceRequirement()).atStartOfDay().toEpochSecond(ZoneOffset.UTC));
 
-            boolean result = SNARK.verify(vk, proof, payload.getMajorRequirement(), "", "", payload.getEducationRequirement(), "",
-                    String.valueOf(payload.getCreatedAt().toEpochSecond(ZoneOffset.UTC)),
-                    String.valueOf(LocalDate.of(1970, 1, 1).plusYears(payload.getExperienceRequirement()).atStartOfDay().toEpochSecond(ZoneOffset.UTC)), payload.getLicenseRequirement().get(0));
+            String proof = SNARK.generateProof(ek, graduationCredential, employmentCredential, licenseCredential, payload.getMajorRequirement(),
+                    "",
+                    "",
+                    payload.getEducationRequirement(),
+                    "",
+                    String.valueOf(payload.getCreatedAt()),
+                    employTime, payload.getLicenseRequirement().get(0));
+
+            boolean result = SNARK.verify(vk, proof, payload.getMajorRequirement(),
+                    "",
+                    "",
+                    payload.getEducationRequirement(),
+                    "",
+                    String.valueOf(payload.getCreatedAt()),
+                    employTime, payload.getLicenseRequirement().get(0));
 
             if(result) {
                 verifySnark(payload.getApplicationId(), proof);
@@ -632,4 +648,3 @@ public class VcListFragment extends Fragment {
         customDialog.show();
     }
 }
-

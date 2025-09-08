@@ -26,7 +26,7 @@ public class ApplyPayload {
 
     @SerializedName("createdAt")
     @Expose
-    private LocalDateTime createdAt;
+    private Long createdAt;
 
     public String getApplicationId() {
         return applicationId;
@@ -48,7 +48,7 @@ public class ApplyPayload {
         return experienceRequirement;
     }
 
-    public LocalDateTime getCreatedAt() {
+    public Long getCreatedAt() {
         return createdAt;
     }
 }
